@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="description" content="五子棋：支持双人对战和人机对战，随时保存对局进度。" />
+<meta name="theme-color" content="#0f1a2c" />
+<title>五子棋 · Gomoku</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #0f1a2c;
+    color: #e6edf6;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", monospace;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .hud {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: #1a2540;
+    border: 2px solid #2a3a60;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    flex-wrap: wrap;
+    max-width: 95vw;
+  }
+  .hud .item { display: flex; align-items: center; gap: 6px; }
+  .hud .label { color: #8a9bbd; font-weight: 500; font-size: 13px; }
+  .hud .val { font-variant-numeric: tabular-nums; }
+  .hud .turn-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3);
+    display: inline-block;
+  }
+  .hud .turn-dot.black { background: #111; }
+  .hud .turn-dot.white { background: #f5f5f5; }
+  .hud .btn {
+    background: #243254;
+    border: 1px solid #2a3a60;
+    color: #e6edf6;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  .hud .btn:hover:not(:disabled) { background: #2e3f6b; }
+  .hud .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .hud .btn.warn { background: #5a2a32; border-color: #7a3a44; }
+  .hud .btn.warn:hover { background: #7a3a44; }
+
+  canvas {
+    display: block;
+    background: #c9a875;
+    border: 2px solid #2a3a60;
+    border-radius: 12px;
+    touch-action: none;
+    cursor: pointer;
+    max-width: 95vw;
+    max-height: 75vh;
+    height: auto;
+  }
+
+  .back-btn {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    background: #1a2540;
+    border: 2px solid #2a3a60;
+    color: #e6edf6;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    z-index: 10;
+  }
+  .back-btn:hover { background: #2a3a60; }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: rgba(15, 26, 44, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    backdrop-filter: blur(6px);
+  }
+  .overlay.hidden { display: none; }
+  .overlay-card {
+    background: #1a2540;
+    border: 3px solid #ffd24a;
+    border-radius: 16px;
+    padding: 28px 36px;
+    text-align: center;
+    max-width: 90vw;
+  }
+  .overlay-card.lose { border-color: #ff6b7a; }
+  .overlay-card.draw { border-color: #6bd6ff; }
+  .overlay-card h1 {
+    font-size: 30px;
+    margin-bottom: 14px;
+    color: #ffd24a;
+  }
+  .overlay-card.lose h1 { color: #ff6b7a; }
+  .overlay-card.draw h1 { color: #6bd6ff; }
+  .overlay-card p {
+    color: #c0cfe3;
+    margin-bottom: 18px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .overlay-card button {
+    background: #ffd24a;
+    border: none;
+    color: #1a2540;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    margin: 4px;
+  }
+  .overlay-card button:hover { filter: brightness(1.1); }
+  .overlay-card button.secondary { background: #6bd6ff; }
+  .overlay-card button.tertiary { background: #243254; color: #e6edf6; }
+
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .mode-card {
+    background: #243254;
+    border: 2px solid #2a3a60;
+    border-radius: 12px;
+    padding: 18px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #e6edf6;
+  }
+  .mode-card:hover {
+    border-color: #ffd24a;
+    transform: translateY(-2px);
+  }
+  .mode-card .emoji { font-size: 36px; display: block; margin-bottom: 6px; }
+  .mode-card .name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .mode-card .desc { font-size: 12px; color: #8a9bbd; line-height: 1.4; }
+</style>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="game-page game-page--gomoku">
+
+<div class="wrap">
+  <div class="hud">
+    <div class="item"><span class="label">模式</span><span class="val" id="hudMode">—</span></div>
+    <div class="item">
+      <span class="label">回合</span>
+      <span class="turn-dot" id="hudTurnDot"></span>
+      <span class="val" id="hudTurn">—</span>
+    </div>
+    <div class="item"><span class="label">步数</span><span class="val" id="hudStep">0</span></div>
+    <button class="btn" id="undoBtn" type="button">悔棋</button>
+    <button class="btn warn" id="resetBtn" type="button">重开</button>
+  </div>
+  <canvas id="game" width="600" height="600" aria-label="五子棋棋盘"></canvas>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card" id="overlayCard">
+    <h1 id="overlayTitle">五子棋</h1>
+    <p id="overlayMsg">选择对战模式</p>
+    <div id="overlayContent"></div>
+  </div>
+</div>
+
+<script src="./gomoku.js"></script>
+</body>
+</html>
